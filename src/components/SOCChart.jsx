@@ -4,6 +4,7 @@ import {
   Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import { formatTime, makeTimeTickFormatter } from '../utils/normalize'
+import { getModo } from '../utils/modos'
 import { useTimeWindow } from '../hooks/useTimeWindow'
 import RangeSelector from './RangeSelector'
 import { SOC_RANGES, MAX_POINTS } from './chartConfig'
@@ -11,9 +12,14 @@ import { SOC_RANGES, MAX_POINTS } from './chartConfig'
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   const soc = payload[0]?.value ?? 0   // dataKey SOC_pct is already a percentage
+  const modo = getModo(payload[0]?.payload?.modo)
   return (
     <div className="ct">
       <div className="ct-time">{formatTime(label)}</div>
+      <div className="ct-modo">
+        <span className="ct-modo-dot" style={{ backgroundColor: modo.color }} />
+        <span style={{ color: modo.color }}>{modo.label}</span>
+      </div>
       <div className="ct-row">
         <span className="ct-name" style={{ color: '#58a6ff' }}>SOC</span>
         <span className="ct-val">{soc.toFixed(1)} %</span>

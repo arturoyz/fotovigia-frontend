@@ -8,17 +8,16 @@ import { HISTORICO_URL, formatDateTime, normalizeTimestamp } from '../utils/norm
 import { getModo } from '../utils/modos'
 import HistoricoStats from './HistoricoStats'
 
-// All plottable signals. SOC is shown as % (scaled ×100 via dataKey SOC_pct).
+// Plottable signals. Solar (Ppv_meas) and battery use (Pbat_meas) each show a single
+// line; SOC is the battery percentage (×100 via dataKey SOC_pct).
 const ALL_SIGNALS = [
-  { key: 'sim_pv',    label: 'Solar disponible', color: '#f0b429', unit: 'MW' },
-  { key: 'Ppv_meas',  label: 'Solar entregada',  color: '#f6e05e', unit: 'MW' },
-  { key: 'Ppcc_meas', label: 'Entrega a red',    color: '#58a6ff', unit: 'MW' },
-  { key: 'Ptso',      label: 'Consigna TSO',     color: '#bc8cff', unit: 'MW' },
-  { key: 'Pbat_meas', label: 'Batería',          color: '#3fb950', unit: 'MW' },
-  { key: 'Pbat_star', label: 'Consigna batería', color: '#56d364', unit: 'MW' },
-  { key: 'SOC',       label: 'SOC',              color: '#79c0ff', unit: '%',  dataKey: 'SOC_pct' },
-  { key: 'fmeas',     label: 'Frecuencia',       color: '#ff7b72', unit: 'Hz' },
-  { key: 'alpha',     label: 'Alpha',            color: '#d2a8ff', unit: 'α'  },
+  { key: 'Ppv_meas',  label: 'Solar',         color: '#f0b429', unit: 'MW' },
+  { key: 'Ppcc_meas', label: 'Entrega a red', color: '#58a6ff', unit: 'MW' },
+  { key: 'Ptso',      label: 'Consigna TSO',  color: '#bc8cff', unit: 'MW' },
+  { key: 'Pbat_meas', label: 'Uso batería',   color: '#3fb950', unit: 'MW' },
+  { key: 'SOC',       label: 'Batería %',     color: '#79c0ff', unit: '%',  dataKey: 'SOC_pct' },
+  { key: 'fmeas',     label: 'Frecuencia',    color: '#ff7b72', unit: 'Hz' },
+  { key: 'alpha',     label: 'Alpha',         color: '#d2a8ff', unit: 'α'  },
 ]
 
 const UNIT_META = {

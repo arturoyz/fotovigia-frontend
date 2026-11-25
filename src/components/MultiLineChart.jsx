@@ -5,12 +5,10 @@ import {
 } from 'recharts'
 import { makeTimeTickFormatter } from '../utils/normalize'
 import { useTimeWindow } from '../hooks/useTimeWindow'
-import { makeTooltip } from './ChartTooltip'
+import { UnitChartTooltip } from './ChartTooltip'
 import ChartLegend from './ChartLegend'
 import RangeSelector from './RangeSelector'
 import { MW_RANGES, MAX_POINTS } from './chartConfig'
-
-const Tip = makeTooltip('MW')
 
 // Generic time-series panel for 2+ MW signals sharing a Y axis (consigna, solar…).
 export default function MultiLineChart({ title, signals, data, loading }) {
@@ -58,7 +56,7 @@ export default function MultiLineChart({ title, signals, data, loading }) {
             axisLine={false}
             tickFormatter={(v) => v.toFixed(1)}
           />
-          <Tooltip content={<Tip />} />
+          <Tooltip content={<UnitChartTooltip unit="MW" />} />
           {signals.map(({ key, label, color, dashed }) => (
             <Line
               key={key}

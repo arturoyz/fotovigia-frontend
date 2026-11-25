@@ -13,3 +13,5 @@ export const SOC_RANGES = [
 ]
 
 export const MAX_POINTS = 300
+
+export const tooltipCursor = { stroke: '#8192a8', strokeDasharray: '3 3', strokeWidth: 1 }

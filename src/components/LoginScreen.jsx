@@ -42,6 +42,7 @@ export default function LoginScreen() {
     <div className="login-shell">
       <div className="login-card">
         <div className="login-brand">
+          <img className="brand-symbol" src={`${import.meta.env.BASE_URL}favicon.svg`} width="48" height="48" alt="" />
           <h1 className="brand-name">Fotovigia</h1>
         </div>
 

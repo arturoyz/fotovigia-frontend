@@ -5,11 +5,10 @@ import {
 } from 'recharts'
 import { makeTimeTickFormatter } from '../utils/normalize'
 import { useTimeWindow } from '../hooks/useTimeWindow'
-import { makeTooltip } from './ChartTooltip'
+import { UnitChartTooltip } from './ChartTooltip'
 import RangeSelector from './RangeSelector'
 import { MW_RANGES, MAX_POINTS } from './chartConfig'
 
-const Tip   = makeTooltip('Hz', 2)
 const COLOR = '#ff7b72'
 const F2 = 49.8   // droop lower threshold
 const F3 = 50.2   // droop upper threshold
@@ -59,7 +58,7 @@ export default function FreqChart({ data, loading }) {
             axisLine={false}
             tickFormatter={(v) => v.toFixed(2)}
           />
-          <Tooltip content={<Tip />} />
+          <Tooltip content={<UnitChartTooltip unit="Hz" decimals={2} />} />
           <ReferenceLine y={50} stroke="#30363d" strokeWidth={1} />
           <ReferenceLine y={F3} stroke="#d29922" strokeDasharray="4 2" strokeWidth={1}
             label={{ value: '50.2', fill: '#d29922', fontSize: 10, position: 'right' }} />

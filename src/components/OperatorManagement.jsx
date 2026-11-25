@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { OPERADORES_URL } from '../utils/normalize'
+import PanelStatus from './PanelStatus'
 
 const PAGE_SIZE = 8
 
@@ -13,22 +14,8 @@ function passwordIssue(pw) {
   return null
 }
 
-function initials(op) {
-  const n = (op.nombre || '').trim()
-  const a = (op.apellido || '').trim()
-  if (n || a) return ((n[0] || '') + (a[0] || '')).toUpperCase()
-  return (op.username || '?').slice(0, 2).toUpperCase()
-}
-
 function displayName(op) {
   return [op.nombre, op.apellido].filter(Boolean).join(' ').trim() || op.username
-}
-
-// Deterministic colour from the username (same user → same colour)
-function colorFor(str = '') {
-  let h = 0
-  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h)
-  return `hsl(${Math.abs(h) % 360} 42% 42%)`
 }
 
 function fmtDate(v) {
@@ -94,17 +81,18 @@ function AddOperatorModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="new-operator-title">
         <div className="modal-head">
-          <h3 className="modal-title">Nuevo operador</h3>
+          <h3 className="modal-title" id="new-operator-title">Nuevo operador</h3>
           <button className="modal-close" onClick={onClose} aria-label="Cerrar">✕</button>
         </div>
         <form className="modal-body" onSubmit={submit}>
-          <label className="form-label">Usuario</label>
-          <input type="text" value={username} onChange={e => setUsername(e.target.value)} autoComplete="off" autoFocus />
+          <label className="form-label" htmlFor="operator-username">Usuario</label>
+          <input id="operator-username" type="text" value={username} onChange={e => setUsername(e.target.value)} autoComplete="off" autoFocus />
 
-          <label className="form-label">Contraseña temporal</label>
+          <label className="form-label" htmlFor="operator-password">Contraseña temporal</label>
           <input
+            id="operator-password"
             type="text"
             value={password}
             onChange={e => setPassword(e.target.value)}
@@ -112,11 +100,11 @@ function AddOperatorModal({ onClose, onCreated }) {
             placeholder="Mín. 8 · mayús · minús · número · símbolo"
           />
 
-          {err && <div className="operador-msg err">{err}</div>}
+          {err && <PanelStatus kind="error" inline>{err}</PanelStatus>}
 
           <div className="modal-actions">
             <button type="button" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-primary" disabled={busy}>
+            <button type="submit" className="workspace-primary" disabled={busy}>
               {busy ? 'Creando…' : 'Crear operador'}
             </button>
           </div>
@@ -135,22 +123,30 @@ export default function OperatorManagement() {
   const [modalOpen, setModalOpen] = useState(false)
   const [toast,   setToast]   = useState(null)   // { ok, msg }
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res  = await fetch(OPERADORES_URL)
+  const load = useCallback((signal) => fetch(OPERADORES_URL, { signal })
+    .then(async res => {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-      setOperadores(Array.isArray(data.operadores) ? data.operadores : [])
-    } catch (e) {
-      setError(e.message || 'No se pudo cargar la lista de operadores.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      if (!signal?.aborted) setOperadores(Array.isArray(data.operadores) ? data.operadores : [])
+    })
+    .catch(e => {
+      if (!signal?.aborted) setError(e.message || 'No se pudo cargar la lista de operadores.')
+    })
+    .finally(() => {
+      if (!signal?.aborted) setLoading(false)
+    }), [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [load])
+
+  function refresh() {
+    setLoading(true)
+    setError(null)
+    load()
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -161,8 +157,6 @@ export default function OperatorManagement() {
         .some(v => String(v).toLowerCase().includes(q))
     )
   }, [operadores, search])
-
-  useEffect(() => { setPage(1) }, [search])
 
   const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -179,7 +173,7 @@ export default function OperatorManagement() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
       setToast({ ok: true, msg: `Operador ${op.username} eliminado.` })
-      load()
+      refresh()
     } catch (e) {
       setToast({ ok: false, msg: e.message || 'No se pudo eliminar el operador.' })
     }
@@ -188,69 +182,72 @@ export default function OperatorManagement() {
   const handleCreated = (username) => {
     setModalOpen(false)
     setToast({ ok: true, msg: `Operador ${username} creado, deberá cambiar la contraseña en su primer acceso.` })
-    load()
+    refresh()
   }
 
   return (
-    <div className="card">
-      <div className="um-toolbar">
+    <section className="plant-panel operator-panel" aria-labelledby="operators-heading">
+      <div className="plant-panel-head"><h2 id="operators-heading">Operadores</h2></div>
+      <div className="um-toolbar workspace-toolbar">
         <input
           className="um-search"
-          type="text"
-          placeholder="Buscar por usuario, nombre o email…"
+          type="search"
+          aria-label="Buscar operadores"
+          placeholder="Buscar por usuario, nombre o correo…"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
         />
-        <button className="btn-primary um-add" onClick={() => setModalOpen(true)}>
-          <span className="um-add-plus">+</span> Add new operator
+        <button type="button" className="workspace-primary" onClick={() => setModalOpen(true)}>
+          Nuevo operador
         </button>
       </div>
 
       {toast && (
-        <div className={`operador-msg ${toast.ok ? 'ok' : 'err'}`} onClick={() => setToast(null)}>
-          {toast.msg}
+        <div className={`operador-msg workspace-feedback ${toast.ok ? 'ok' : 'err'}`}>
+          <span role={toast.ok ? 'status' : 'alert'}>{toast.msg}</span>
+          <button type="button" onClick={() => setToast(null)} aria-label="Cerrar aviso">Cerrar</button>
         </div>
       )}
 
-      {loading ? (
-        <div className="empty-state">Cargando operadores…</div>
+      {loading && operadores.length === 0 ? (
+        <div className="operator-state"><PanelStatus kind="loading" announce>Cargando operadores…</PanelStatus></div>
       ) : error ? (
-        <div className="operador-msg err">{error}</div>
+        <div className="operator-state"><PanelStatus kind="error">{error}</PanelStatus></div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">{search ? 'Sin resultados para la búsqueda' : 'No hay operadores todavía'}</div>
+        <div className="operator-state"><PanelStatus announce>
+          {search ? 'Sin resultados para la búsqueda' : 'No hay operadores registrados'}
+        </PanelStatus></div>
       ) : (
         <>
-          <div className="op-list">
-            {pageItems.map((op) => {
-              const badge = statusBadge(op.estado)
-              return (
-                <div className="op-card" key={op.username}>
-                  <div className="op-avatar" style={{ backgroundColor: colorFor(op.username) }}>
-                    {initials(op)}
-                  </div>
-                  <div className="op-main">
-                    <div className="op-name">{displayName(op)}</div>
-                    <div className="op-email">{op.email || 'Pendiente de primer acceso'}</div>
-                  </div>
-                  <div className="op-date">{fmtDate(op.fechaAlta)}</div>
-                  <span className={`op-badge ${badge.cls}`}>{badge.label}</span>
-                  <button
-                    className="op-delete"
-                    onClick={() => handleDelete(op)}
-                    title="Eliminar operador"
-                    aria-label={`Eliminar a ${op.username}`}
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
-              )
-            })}
+          <div className="operator-table-wrap" tabIndex={0} role="region" aria-label="Listado de operadores">
+            <table className="operator-table">
+              <thead><tr>
+                <th scope="col">Operador</th><th scope="col">Estado</th>
+                <th scope="col">Fecha de alta</th><th scope="col">Acciones</th>
+              </tr></thead>
+              <tbody>
+                {pageItems.map((op) => {
+                  const badge = statusBadge(op.estado)
+                  return (
+                    <tr key={op.username}>
+                      <th scope="row"><span>{displayName(op)}</span>
+                        <small>{[op.username, op.email].filter(value => value && value !== displayName(op)).join(' · ') || '—'}</small>
+                      </th>
+                      <td><span className={`op-badge ${badge.cls}`}>{badge.label}</span></td>
+                      <td className="op-date">{fmtDate(op.fechaAlta)}</td>
+                      <td><button type="button" className="op-delete" onClick={() => handleDelete(op)}
+                        title="Eliminar operador" aria-label={`Eliminar a ${op.username}`}><TrashIcon /></button></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
 
           <div className="um-footer">
-            <span className="um-count">
+            {loading ? <PanelStatus kind="loading" inline announce>Actualizando operadores…</PanelStatus> : <span className="um-count">
               {filtered.length} operador{filtered.length !== 1 ? 'es' : ''}
-            </span>
+            </span>}
             {totalPages > 1 && (
               <div className="um-pagination">
                 <button disabled={currentPage <= 1} onClick={() => setPage(p => p - 1)}>‹ Anterior</button>
@@ -265,6 +262,6 @@ export default function OperatorManagement() {
       {modalOpen && (
         <AddOperatorModal onClose={() => setModalOpen(false)} onCreated={handleCreated} />
       )}
-    </div>
+    </section>
   )
 }

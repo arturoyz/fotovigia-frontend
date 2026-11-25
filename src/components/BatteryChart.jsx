@@ -5,11 +5,10 @@ import {
 } from 'recharts'
 import { makeTimeTickFormatter } from '../utils/normalize'
 import { useTimeWindow } from '../hooks/useTimeWindow'
-import { makeTooltip } from './ChartTooltip'
+import { UnitChartTooltip } from './ChartTooltip'
 import RangeSelector from './RangeSelector'
 import { MW_RANGES, MAX_POINTS } from './chartConfig'
 
-const Tip       = makeTooltip('MW')
 const DESCARGA  = '#d29922'   // positive: battery delivers
 const CARGA     = '#3fb950'   // negative: battery absorbs
 
@@ -82,7 +81,7 @@ export default function BatteryChart({ data, loading }) {
             label={{ value: 'Descarga (+)', position: 'insideTopRight', fill: DESCARGA, fontSize: 11 }} />
           <ReferenceArea y1={-1.1} y2={0} fillOpacity={0}
             label={{ value: 'Carga (−)', position: 'insideBottomRight', fill: CARGA, fontSize: 11 }} />
-          <Tooltip content={<Tip />} />
+          <Tooltip content={<UnitChartTooltip unit="MW" />} />
           <ReferenceLine y={0} stroke="#7d8590" strokeWidth={1.5} />
           <Area
             type="monotone"

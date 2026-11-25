@@ -1,26 +1,31 @@
 import { formatTime } from '../utils/normalize'
 import { getModo } from '../utils/modos'
 
-// Builds a Recharts tooltip renderer that prints each series value with a unit,
-// plus the controller mode at that instant (read from the full record).
-export function makeTooltip(unit, decimals = 3) {
-  return function ChartTooltip({ active, payload, label }) {
-    if (!active || !payload?.length) return null
-    const modo = getModo(payload[0]?.payload?.modo)
-    return (
-      <div className="ct">
-        <div className="ct-time">{formatTime(label)}</div>
-        <div className="ct-modo">
-          <span className="ct-modo-dot" style={{ backgroundColor: modo.color }} />
-          <span style={{ color: modo.color }}>{modo.label}</span>
-        </div>
-        {payload.map((p) => (
-          <div key={p.name} className="ct-row">
-            <span className="ct-name" style={{ color: p.color || p.stroke }}>{p.name}</span>
-            <span className="ct-val">{Number(p.value).toFixed(decimals)} {unit}</span>
-          </div>
-        ))}
+export function ChartTooltip({ active, payload, label, formatLabel = formatTime, describe }) {
+  if (!active || !payload?.length) return null
+  const modo = getModo(payload[0]?.payload?.modo)
+  return (
+    <div className="ct">
+      <div className="ct-header">
+        <span className="ct-time">{formatLabel(label)}</span>
+        {modo.cls !== 'unknown' && <span className="ct-mode">{modo.label}</span>}
       </div>
-    )
-  }
+      {payload.map(entry => {
+        const { unit, decimals } = describe(entry)
+        return (
+          <div key={entry.name} className="ct-row">
+            <span className="ct-name">
+              <span className="ct-series" style={{ backgroundColor: entry.color || entry.stroke }} aria-hidden="true" />
+              {entry.name}
+            </span>
+            <span className="ct-val">{Number(entry.value).toFixed(decimals)}{unit && <small> {unit}</small>}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function UnitChartTooltip({ unit, decimals = 3, ...props }) {
+  return <ChartTooltip {...props} describe={() => ({ unit, decimals })} />
 }

@@ -1,38 +1,28 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import './App.css'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { useWebSocket } from './hooks/useWebSocket'
 import StatusHeader from './components/StatusHeader'
-import SideMenu from './components/SideMenu'
 import LoginScreen from './components/LoginScreen'
-import MultiLineChart from './components/MultiLineChart'
-import BatteryChart from './components/BatteryChart'
-import SOCChart from './components/SOCChart'
-import FreqChart from './components/FreqChart'
+import PlantOverview from './components/PlantOverview'
+import { MW_RANGES } from './components/chartConfig'
 import HistoricoPanel from './components/HistoricoPanel'
 import OperatorManagement from './components/OperatorManagement'
-
-const CONSIGNA_SIGNALS = [
-  { key: 'Ptso',      label: 'Consigna TSO',   color: '#bc8cff', dashed: true },
-  { key: 'Ppcc_meas', label: 'Entrega a red',  color: '#58a6ff' },
-]
-const SOLAR_SIGNALS = [
-  { key: 'sim_pv',   label: 'Solar disponible', color: '#f0b429', dashed: true },
-  { key: 'Ppv_meas', label: 'Solar entregada',  color: '#f6e05e' },
-]
+import { buildPlantWindow } from './utils/plantWindow'
 
 // Real-time charts are fed ONLY by the WebSocket (no historic preload). The buffer
 // is a plain FIFO: append on arrival, drop the oldest past the cap. Points come from
 // a single source in chronological order, so we never sort or dedupe — that is what
 // prevents the line from "jumping backwards" in time.
-const MAX_LIVE_POINTS = 4000   // covers the widest chart window (SOC, 1 H at 1/s)
+const MAX_LIVE_POINTS = 4000
 
 function Dashboard() {
   const { role, user, signOut } = useAuth()
   const [liveData, setLiveData] = useState([])
-  const [latest,   setLatest]   = useState(null)
+  const [rangeMs, setRangeMs] = useState(MW_RANGES[1].ms)
+  const [toleranceMW, setToleranceMW] = useState(null)
+  const [connectionEvents, setConnectionEvents] = useState([])
   const [view,     setView]     = useState('dashboard')   // dashboard | historical | users
-  const [menuOpen, setMenuOpen] = useState(false)
 
   const handleData = useCallback((point) => {
     setLiveData(prev => {
@@ -45,59 +35,50 @@ function Dashboard() {
       const next = [...prev, point]
       return next.length > MAX_LIVE_POINTS ? next.slice(-MAX_LIVE_POINTS) : next
     })
-    setLatest(point)
   }, [])
 
-  const wsStatus = useWebSocket({ onData: handleData })
+  const handleConnectionEvent = useCallback(event => {
+    setConnectionEvents(previous => [...previous.slice(-399), event])
+  }, [])
+  const wsStatus = useWebSocket({ onData: handleData, onConnectionEvent: handleConnectionEvent })
+  const windowData = useMemo(
+    () => buildPlantWindow(liveData, connectionEvents, rangeMs, toleranceMW),
+    [liveData, connectionEvents, rangeMs, toleranceMW],
+  )
 
   // Guard: a non-admin can never land on the users view
   const activeView = view === 'users' && role !== 'admin' ? 'dashboard' : view
-
-  const navigate = (v) => { setView(v); setMenuOpen(false) }
+  const latest = windowData.latest
+  const liveView = activeView === 'dashboard'
 
   return (
     <div className="app-shell">
       <StatusHeader
         latest={latest}
         wsStatus={wsStatus}
+        rangeMs={liveView ? rangeMs : undefined}
+        onRangeChange={setRangeMs}
+        windowData={liveView ? windowData : undefined}
         user={user}
         role={role}
         onLogout={signOut}
-        onMenuToggle={() => setMenuOpen(true)}
+        currentView={activeView}
+        onNavigate={setView}
       />
 
-      <SideMenu
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        current={activeView}
-        onNavigate={navigate}
-        role={role}
-      />
-
-      <main className="main-content">
-        {activeView === 'dashboard' && (
-          <>
-            <h2 className="section-title">Tiempo real</h2>
-            <div className="charts-grid">
-              <MultiLineChart title="Consigna TSO vs Entrega a red" signals={CONSIGNA_SIGNALS} data={liveData} />
-              <MultiLineChart title="Generación solar"              signals={SOLAR_SIGNALS}    data={liveData} />
-              <BatteryChart data={liveData} />
-              <SOCChart     data={liveData} />
-              <FreqChart    data={liveData} />
-            </div>
-          </>
-        )}
+      <main className={`main-content ${liveView ? 'plant-main' : 'plant-workspace'}`}>
+        {liveView && <PlantOverview windowData={windowData} onToleranceChange={setToleranceMW} />}
 
         {activeView === 'historical' && (
           <>
-            <h2 className="section-title">Historical Data</h2>
+            <h2 className="section-title">Histórico</h2>
             <HistoricoPanel />
           </>
         )}
 
         {activeView === 'users' && role === 'admin' && (
           <>
-            <h2 className="section-title">User Management</h2>
+            <h2 className="section-title">Usuarios</h2>
             <OperatorManagement />
           </>
         )}
